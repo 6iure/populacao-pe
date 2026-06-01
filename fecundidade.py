@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+import matplotlib.ticker as mticker
+from matplotlib.lines import Line2D
 # %%
 df_all = pd.read_excel('data/data_geral/dinamica_populacional_pe.xlsx')
 df_all.head()
@@ -40,9 +42,50 @@ cresc_pop_final = pd.concat([cresc_pop, total_df], ignore_index=True)
 cresc_pop_final
 # %%
 
-#todo deixar isso mais bonitinho
+#todo deixar isso mais bonitinho e adicionar no grafico
 
 ((cresc_pop_final[2024] - cresc_pop_final[2000]) / cresc_pop_final[2000]) * 100
+
+# %%
+total_df.drop(columns={'sexo', 'local'},inplace=True)
+
+# %%
+total_df = total_df.melt()
+total_df
+
+# %%
+total_df.rename(columns={'variable': 'anos', 'value':'populacao'}, inplace=True)
+
+# %%
+total_df['anos'] = total_df['anos'].astype(int)  
+# %% 
+#todo melhorar GRAFICO PARA mostrar crescimento por sexo e colocar legenda com as taxas.
+fig, ax = plt.subplots(figsize=(13, 7))
+fig.patch.set_facecolor('#F7F9FC')
+ax.set_facecolor('#F7F9FC')
+
+ax.fill_between(total_df['anos'], total_df['populacao'], alpha=0.25, color='#2166AC')
+ax.plot(total_df['anos'], total_df['populacao'], color='#1a4f7a', linewidth=2.8, zorder=3)
+
+for spine in ['top', 'right', 'left']:
+    ax.spines[spine].set_visible(False)
+ax.spines['bottom'].set_color('#cccccc')
+ax.tick_params(length=0, labelcolor='#555555', labelsize=10)
+ax.grid(axis='y', color='#dddddd', linewidth=0.8, linestyle='--', zorder=0)
+ax.set_axisbelow(True)
+
+ax.yaxis.set_major_formatter(
+    mticker.FuncFormatter(lambda x, pos: f'{x/1_000_000:.1f} mi')
+)
+ax.set_xlim(1999.5, 2024.8)
+ax.set_ylim(7_800_000, 10_100_000)
+ax.set_xticks([2000, 2005, 2010, 2015, 2020, 2024])
+
+plt.title('Crescimento Populacional - PE: 2000 - 2024', fontsize=14, pad=15, fontweight='bold', loc='left')
+plt.xlabel('Ano', fontsize=10, fontweight='bold', color='#555555')
+plt.ylabel('População (Milhões)', fontsize=10, fontweight='bold', color='#555555')
+plt.tight_layout()
+plt.show()
 
 # %%
 #CALCULO DA RAZAO DE DEPENDENCIA AO DECORRER DOS ANOS
@@ -89,6 +132,41 @@ dependencia
 # %%
 dependencia['rdt'] = ((dependencia['dep_idoso'] + dependencia['dep_jovem']) / dependencia['independente']) * 100
 dependencia
+
+# %% 
+#TODO GRAFICO DE LINHAS PARA MOSTRAR A RAZAO DE DEPENDENCIA
+plt.figure(figsize=(12,6))
+
+plt.plot(dependencia['ano'], dependencia['rdj'], color="#F60909", linestyle='-.', linewidth=2, label='Jovens (0-14)')
+plt.plot(dependencia['ano'], dependencia['rdi'], color="#001AFF", linestyle='--', linewidth=2, label='Idosos (65+)')
+
+plt.plot(dependencia['ano'], dependencia['rdt'], color="#04FD00", linestyle='-', linewidth=3, label='Razão de Dependência Total')
+
+ax = plt.gca()
+ax.spines['top'].set_visible(False)    # Remove a linha de cima
+ax.spines['right'].set_visible(False)  # Remove a linha da direita
+ax.spines['left'].set_color('#D1D5DB')  # Deixa o eixo Y sutil
+ax.spines['bottom'].set_color('#D1D5DB')# Deixa o eixo X sutil
+
+# 5. Títulos e Rótulos alinhados à esquerda (Padrão de leitura em Z)
+plt.title('Evolução da Razão de Dependência em Pernambuco', fontsize=16, fontweight='bold', color='#1F2937', loc='left', pad=15)
+# Subtítulo para dar contexto ao leitor antes de olhar o dado
+
+plt.xlabel('Ano', fontsize=11, color='#4B5563', labelpad=10)
+plt.ylabel('Dependentes para cada 100 ativos', fontsize=11, color='#4B5563', labelpad=10)
+
+# 6. Configurar os anos no eixo X para ficarem limpos (ex: de 2 em 2 anos ou todos na horizontal)
+plt.xticks(dependencia['ano'], rotation=0) 
+
+# 7. Legenda posicionada de forma estratégica
+plt.legend(frameon=False, loc='upper right', fontsize=10)
+
+# Ajustar o espaçamento para não cortar textos
+plt.tight_layout()
+
+# Exibir o gráfico pronto para apresentação
+plt.show()
+
 # %% calculando o indice de envelhecimento da populacao
 
 cond = pe['grupo_etario'].isin(lista_jovens), pe['grupo_etario'].isin(['60-64','65-69','70-74','75-79','80-84','85-89','90+'])
@@ -97,44 +175,120 @@ chce = ['jovem', 'idoso']
 pe['fase_vida'] = np.select(cond, chce, 'adulto')
 pe
 # %%
-ind_env = pe.groupby(['fase_vida']).sum(numeric_only=True)
+ind_env = pe.groupby(['fase_vida', 'sexo']).sum(numeric_only=True)
 ind_env
-# %%
-teste = ind_env.T
-teste
 
 # %%
-teste.reset_index(inplace=True)
-teste
+ind_env.reset_index(inplace=True)
+ind_env
+
 # %%
-teste.drop(columns=['adulto'], inplace=True)
-teste
+colunas_anos = ind_env.select_dtypes('number').columns.tolist()
+
 # %%
-teste['indice_envelhecimento'] = (teste['idoso'] / teste['jovem']) * 100
-teste
+tt = ind_env.melt(
+    id_vars=['fase_vida', 'sexo'],
+    value_vars=colunas_anos,
+    var_name='ano',
+    value_name='populacao'
+)
+
+#%%
+tt.info()
 # %%
+tt['ano'] = tt['ano'].astype(int)
+tt['populacao'] = tt['populacao'].astype(float)
+
+# %%
+tt.sort_values(['fase_vida', 'sexo', 'ano']).reset_index(drop=True)
+tt
+
+# %%
+#TODO Mlehorar grafico de indice de envelhecimento da populacao
+CORES   = {'jovem': '#2166AC', 'adulto': '#1A9641', 'idoso': '#D73027'}
+ESTILOS = {'Homens': '-',  'Mulheres': '--'}
+MARCAD  = {'Homens': 'o',  'Mulheres': 's'}
+
+fig, ax = plt.subplots(figsize=(13, 7))
+fig.patch.set_facecolor('#F7F9FC')
+ax.set_facecolor('#F7F9FC')
+
+for (fase, sexo), grupo in tt.groupby(['fase_vida', 'sexo']):
+    x = grupo['ano'].values
+    y = grupo['populacao'].values
+
+    ax.plot(x, y,
+            color=CORES[fase], linestyle=ESTILOS[sexo], linewidth=2.2,
+            marker=MARCAD[sexo], markersize=3.5, markevery=2, zorder=3)
+
+    # Anotação no valor final (2024)
+    pop_final = grupo.loc[grupo['ano'] == 2024, 'populacao'].values[0]
+    ax.annotate(f'{pop_final/1_000_000:.2f} mi',
+                xy=(2024, pop_final), xytext=(2024.3, pop_final),
+                fontsize=7.5, color=CORES[fase], fontweight='bold', va='center')
+
+# ── Limpeza visual ────────────────────────────────────────────────────
+for spine in ['top', 'right']:
+    ax.spines[spine].set_visible(False)
+ax.spines['left'].set_color('#cccccc')
+ax.spines['bottom'].set_color('#cccccc')
+ax.tick_params(length=0, labelcolor='#555555', labelsize=10)
+ax.grid(axis='y', color='#e5e5e5', linewidth=0.8, linestyle='--', zorder=0)
+ax.set_axisbelow(True)
+
+# ── Eixos ─────────────────────────────────────────────────────────────
+ax.yaxis.set_major_formatter(
+    mticker.FuncFormatter(lambda x, pos: f'{x/1_000_000:.1f} mi')
+)
+ax.set_xlim(1999, 2025)
+ax.set_xticks([2000, 2005, 2010, 2015, 2020, 2024])
+ax.set_xlabel('Ano', fontsize=10, color='#555555', labelpad=8)
+
+# ── Legenda dupla (cor = fase | estilo = sexo) ────────────────────────
+legend_fase = [
+    Line2D([0],[0], color=CORES['adulto'], linewidth=2, label='Adulto (15-59 anos)'),
+    Line2D([0],[0], color=CORES['jovem'],  linewidth=2, label='Jovem (0-14 anos)'),
+    Line2D([0],[0], color=CORES['idoso'],  linewidth=2, label='Idoso (60+ anos)'),
+]
+legend_sexo = [
+    Line2D([0],[0], color='#888', lw=2, ls='-',  marker='o', ms=5, label='Homens'),
+    Line2D([0],[0], color='#888', lw=2, ls='--', marker='s', ms=5, label='Mulheres'),
+]
+leg1 = ax.legend(handles=legend_fase, loc='upper left',
+                 frameon=False, fontsize=9.5,
+                 title='Fase da vida', title_fontsize=9)
+leg2 = ax.legend(handles=legend_sexo, loc='center left',
+                 frameon=False, fontsize=9.5,
+                 title='Sexo', title_fontsize=9, bbox_to_anchor=(0, 0.42))
+ax.add_artist(leg1)
+
+# ── Títulos e fonte ───────────────────────────────────────────────────
+ax.set_title('Pernambuco: população idosa cresce enquanto jovens diminuem',
+             fontsize=14, fontweight='bold', color='black', loc='left', pad=18)
+fig.text(0.01, -0.02,
+         'Fonte: IBGE — Projeções das Populações, Revisão 2024.',
+         fontsize=8, color='#999999')
+
+plt.tight_layout()
+plt.show()
+
+# %%
+pe
+
+# %%
+#ajuste dos dados para piramidade populacional
 pir_pop = pe.groupby(['sexo', 'grupo_etario']).sum()
 pir_pop 
 
 # %%
 pir_pop.reset_index(inplace=True)
-# %%
 pir_pop
 # %%
 pir_pop.drop(columns=[2001,2002,2003,2004,2005,2006,2007, 2008,2009,2010,2011,2012,2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023], inplace=True)
-# %%
 pir_pop
 # %%
 pir_pop[pir_pop['sexo'] == 'Homens']
 
-# %%
-data = {
- "AgeGroup": ["0-4", "5-9", "10-14", "15-19", "20-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-69", "70-74", "75-79", "80+"],
- "Male": [1500, 1450, 1400, 1350, 1300, 1250, 1200, 1150, 1100, 1050, 900, 750, 600, 450, 300, 150, 50],
- "Female": [1400, 1380, 1320, 1280, 1250, 1220, 1180, 1140, 1100, 1060, 920, 780, 640, 500, 350, 180, 70]
-}
-df = pd.DataFrame(data)
-df
 # %%
 colunas_anos = pir_pop.select_dtypes('number').columns.tolist()
 # %%
@@ -155,10 +309,10 @@ df_pivo
 
 fig, ax = plt.subplots(figsize=(12, 6))
 
-ax.barh(df_pivo['grupo_etario'], -df_pivo['homens_2024'], color='royalblue', label='Homens')
+ax.barh(df_pivo['grupo_etario'], -df_pivo['homens_2024'], color='blue', label='Homens')
 ax.barh(df_pivo['grupo_etario'], df_pivo['mulheres_2024'], color='magenta', label='Mulheres')
 
-plt.grid(axis='x', linestyle='--', alpha=0.6)
+plt.grid(axis='both', linestyle='--', alpha=0.6)
 plt.title('Pirâmide Etária - Pernambuco 2024 ', fontsize=14, pad=10, fontweight='bold', loc='left')
 plt.xlabel('População', fontsize=12, fontweight='bold')
 plt.ylabel('Grupo Etário', fontsize=12, fontweight='bold')
@@ -171,4 +325,3 @@ sns.despine()
 plt.show()
 # %%
 df_pivo
-# %%
