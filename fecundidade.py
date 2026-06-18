@@ -207,7 +207,6 @@ tt
 #TODO Mlehorar grafico de indice de envelhecimento da populacao
 CORES   = {'jovem': '#2166AC', 'adulto': '#1A9641', 'idoso': '#D73027'}
 ESTILOS = {'Homens': '-',  'Mulheres': '--'}
-MARCAD  = {'Homens': 'o',  'Mulheres': 's'}
 
 fig, ax = plt.subplots(figsize=(13, 7))
 fig.patch.set_facecolor('#F7F9FC')
@@ -218,8 +217,7 @@ for (fase, sexo), grupo in tt.groupby(['fase_vida', 'sexo']):
     y = grupo['populacao'].values
 
     ax.plot(x, y,
-            color=CORES[fase], linestyle=ESTILOS[sexo], linewidth=2.2,
-            marker=MARCAD[sexo], markersize=3.5, markevery=2, zorder=3)
+            color=CORES[fase], linestyle=ESTILOS[sexo], linewidth=2.2)
 
     # Anotação no valor final (2024)
     pop_final = grupo.loc[grupo['ano'] == 2024, 'populacao'].values[0]
@@ -251,8 +249,8 @@ legend_fase = [
     Line2D([0],[0], color=CORES['idoso'],  linewidth=2, label='Idoso (60+ anos)'),
 ]
 legend_sexo = [
-    Line2D([0],[0], color='#888', lw=2, ls='-',  marker='o', ms=5, label='Homens'),
-    Line2D([0],[0], color='#888', lw=2, ls='--', marker='s', ms=5, label='Mulheres'),
+    Line2D([0],[0], color='#888', lw=2, ls='-',   ms=5, label='Homens'),
+    Line2D([0],[0], color='#888', lw=2, ls='--', ms=5, label='Mulheres'),
 ]
 leg1 = ax.legend(handles=legend_fase, loc='upper left',
                  frameon=False, fontsize=9.5,
@@ -263,7 +261,7 @@ leg2 = ax.legend(handles=legend_sexo, loc='center left',
 ax.add_artist(leg1)
 
 # ── Títulos e fonte ───────────────────────────────────────────────────
-ax.set_title('Pernambuco: população idosa cresce enquanto jovens diminuem',
+ax.set_title('Pernambuco: Índice de Envelhecimento da População',
              fontsize=14, fontweight='bold', color='black', loc='left', pad=18)
 fig.text(0.01, -0.02,
          'Fonte: IBGE — Projeções das Populações, Revisão 2024.',
@@ -301,7 +299,6 @@ df_pivo = pir_pop.pivot(
 df_pivo.columns = [f"{sexo.lower()}_{ano}" for ano, sexo in df_pivo.columns]
 
 teste = df_pivo.reset_index(inplace=True)
-# %%
 df_pivo
 # %%
 
@@ -325,3 +322,42 @@ sns.despine()
 plt.show()
 # %%
 df_pivo
+
+# %% 
+nasc_viv = pd.read_excel('data/data_fec/total_nascviv.xlsx')
+nasc_viv
+# %%
+#todo PARA CALCULAR TX BRUTA DE MORTALIDADE E TABUA DE VIDA DA SERIE TEMPORAL
+#TODO USAR O ARQ MORT_ANO_TAB_VIDA
+
+# %% para taxa de natalidade usar nasc_vivo e total_df
+nasc_viv
+
+# %%
+nasc_viv
+
+# %%
+total_df
+# %%
+nasc_viv_totais = nasc_viv.sum(numeric_only=True)
+nasc_viv_totais
+# %%
+nasc_viv_totais = pd.DataFrame(nasc_viv_totais).reset_index(False)
+nasc_viv_totais
+# %%
+nasc_viv_totais.rename(columns={'index':'anos', 0:'populacao_nasc_vivos'}, inplace=True)
+nasc_viv_totais
+# %%
+total_df.merge(
+    nasc_viv_totais,
+    how='left',
+    left_on='anos',
+    right_on='anos',
+)
+# %%
+nasc_viv_totais.info()
+# %%
+nasc_viv_totais
+# %%
+nasc_viv.info()
+# %%
