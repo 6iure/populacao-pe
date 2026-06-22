@@ -59,7 +59,8 @@ total_df.rename(columns={'variable': 'anos', 'value':'populacao'}, inplace=True)
 # %%
 total_df['anos'] = total_df['anos'].astype(int)  
 # %% 
-#todo melhorar GRAFICO PARA mostrar crescimento por sexo e colocar legenda com as taxas.
+#todo melhorar GRAFICO PARA mostrar crescimento por sexo e colocar legenda com as taxas. 
+#TODO OU FAZER COM UM HISTOGRAMA
 fig, ax = plt.subplots(figsize=(13, 7))
 fig.patch.set_facecolor('#F7F9FC')
 ax.set_facecolor('#F7F9FC')
@@ -326,15 +327,23 @@ df_pivo
 # %% 
 nasc_viv = pd.read_excel('data/data_fec/total_nascviv.xlsx')
 nasc_viv
-# %%
-#todo PARA CALCULAR TX BRUTA DE MORTALIDADE E TABUA DE VIDA DA SERIE TEMPORAL
-#TODO USAR O ARQ MORT_ANO_TAB_VIDA
 
 # %% para taxa de natalidade usar nasc_vivo e total_df
+nasc_viv.dtypes
+# %% transformando todas as colunas para int
+nasc_viv[2009] = nasc_viv[2009].apply(pd.to_numeric, errors='coerce')
+nasc_viv[2011] = nasc_viv[2011].apply(pd.to_numeric, errors='coerce')
+nasc_viv[2013] = nasc_viv[2013].apply(pd.to_numeric, errors='coerce')
+nasc_viv[2015] = nasc_viv[2015].apply(pd.to_numeric, errors='coerce')
+nasc_viv[2016] = nasc_viv[2016].apply(pd.to_numeric, errors='coerce')
+nasc_viv[2017] = nasc_viv[2017].apply(pd.to_numeric, errors='coerce')
+nasc_viv[2019] = nasc_viv[2019].apply(pd.to_numeric, errors='coerce')
+nasc_viv[2021] = nasc_viv[2021].apply(pd.to_numeric, errors='coerce')
+nasc_viv[2023] = nasc_viv[2023].apply(pd.to_numeric, errors='coerce')
 nasc_viv
 
 # %%
-nasc_viv
+nasc_viv.dtypes
 
 # %%
 total_df
@@ -348,16 +357,203 @@ nasc_viv_totais
 nasc_viv_totais.rename(columns={'index':'anos', 0:'populacao_nasc_vivos'}, inplace=True)
 nasc_viv_totais
 # %%
-total_df.merge(
+df_natalidade = total_df.merge(
     nasc_viv_totais,
     how='left',
     left_on='anos',
     right_on='anos',
 )
+df_natalidade
+# %% criando nova coluna que eh a taxa da natalidade de cada ano
+
+df_natalidade['taxa_natalidade'] = (df_natalidade['populacao_nasc_vivos'] / df_natalidade['populacao']) * 1000
+df_natalidade
 # %%
-nasc_viv_totais.info()
+plt.figure(figsize=(10,5))
+
+plt.plot(df_natalidade['anos'], df_natalidade['taxa_natalidade'], color='#1D4ED8', linewidth=1.5)
+
+ax = plt.gca()
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+plt.title('Taxa Bruta de Natalidade em Pernambuco (2000-2024)', fontsize=14, fontweight='bold', loc='left', pad=10)
+plt.xlabel('Ano')
+plt.ylabel('Nascimentos por 1.000 hab.')
+
+plt.show()
 # %%
-nasc_viv_totais
+mort = pd.read_excel('data/data_mort/tabua-vida-form.xlsx')
+mort
 # %%
-nasc_viv.info()
+mort.dtypes
+# %% mudando o tipo de dado de obj para float da populacao de mortos por ano.
+colunas_anos = mort.columns.drop('Faixa Etária')
+mort[colunas_anos] = mort[colunas_anos].apply(pd.to_numeric, errors='coerce')
+mort.dtypes
+# %%
+soma_mort = mort.sum(numeric_only=True)
+soma_mort
+
+# %%
+soma_mort = pd.DataFrame(soma_mort).reset_index(False)
+soma_mort
+
+# %%
+soma_mort.rename(columns={'index' :'anos', 0:'pop_mortos'}, inplace=True)
+soma_mort
+# %%
+tx_mort = total_df.merge(
+    soma_mort,
+    how='left',
+    left_on='anos',
+    right_on='anos'
+)
+
+tx_mort
+# %%
+tx_mort['taxa_mort_bruta'] = (tx_mort['pop_mortos'] / tx_mort['populacao']) * 1000
+tx_mort
+# %%
+# Todo pesqquisar o porque desse crescimento da tx de mortalidade no estado. e colocar marcacoes de tempo
+plt.figure(figsize=(10,5))
+
+plt.plot(tx_mort['anos'], tx_mort['taxa_mort_bruta'], color="#D8201D", linewidth=1.5)
+
+ax = plt.gca()
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+plt.title('Taxa Bruta de Mortalidade em Pernambuco (2000-2024)', fontsize=14, fontweight='bold', loc='left', pad=10)
+plt.xlabel('Ano')
+plt.ylabel('Mortes por 1.000 hab.')
+
+# %%
+causas_mort = pd.read_csv('data/data_mort/sim_cnv_obt10uf012941177_6_239_134.csv', encoding='latin-1', sep=';')
+
+# %%
+causas_mort.dtypes
+# %% transformando em numerico as colunas que vieram como string
+colunas_anos = causas_mort.columns.drop('Capítulo CID-10')
+causas_mort[colunas_anos] = causas_mort[colunas_anos].apply(pd.to_numeric, errors='coerce')
+causas_mort.dtypes
+
+# %%
+causas_mort['Causa'] = causas_mort['Capítulo CID-10'].str.replace(r'^[IXV]+\.\s*', '', regex=True)
+# %%
+anos = [str(ano) for ano in range(2000, 2025)]
+causas_mort[anos] = causas_mort[anos].apply(pd.to_numeric, errors='coerce').fillna(0)
+# %% grafico das top 10 causas de morte NO PE 2000-2024
+causas_mort['Total_Periodo'] = causas_mort[anos].sum(axis=1)
+
+df_top10 = causas_mort.sort_values('Total_Periodo', ascending=False).head(10)
+
+plt.figure(figsize=(12, 6))
+sns.barplot(data=df_top10, x='Total_Periodo', y='Causa', palette='Blues_r')
+
+plt.title('Top 10 Causas de Morte em Pernambuco (2000-2024)', fontsize=14, fontweight='bold')
+plt.xlabel('Total de Óbitos Acumulados no Período')
+plt.ylabel('')
+sns.despine()
+plt.tight_layout()
+plt.show()
+# %%
+# Calcula o total de mortes no período inteiro para descobrir o Top 5
+causas_mort['Total_Periodo'] = causas_mort[anos].sum(axis=1)
+
+# Isola os nomes das 5 doenças que mais mataram na soma total dos anos
+top_5_causas = causas_mort.sort_values('Total_Periodo', ascending=False)['Causa'].head(7).tolist()
+
+# Configuração visual do gráfico
+plt.figure(figsize=(14, 7))
+sns.set_theme(style="whitegrid") # Coloca linhas de grade horizontais e verticais suaves
+
+# Plota uma linha conectando os pontos para cada uma das 5 doenças
+for causa in top_5_causas:
+    # Extrai os valores exatos de mortes ano a ano para a doença atual
+    dados_causa = causas_mort[causas_mort['Causa'] == causa][anos].values.flatten()
+    
+    # Plota a linha (marker='o' coloca a bolinha em cima de cada ano)
+    plt.plot(anos, dados_causa, label=causa, marker='o', linewidth=2.5)
+
+# Títulos e rótulos
+plt.title('Evolução das 7 Principais Causas de Morte em Pernambuco (2000-2024)', fontsize=15, fontweight='bold', pad=15)
+plt.xlabel('Ano', fontsize=12)
+plt.ylabel('Número de Óbitos', fontsize=12)
+plt.xticks(rotation=45) # Inclina os anos em 45 graus para não ficarem amontoados
+
+# Ajusta a legenda para ficar do lado de fora direito do gráfico
+plt.legend(title='Causas de Morte', bbox_to_anchor=(0, 1), loc='upper left')
+
+# Remove a borda superior e direita do quadro do gráfico
+sns.despine()
+
+# Ajusta o layout para a legenda não ser cortada ao salvar
+plt.tight_layout()
+
+# Exibe o gráfico
+plt.show()
+# %% dados de urbanizacao
+urbanizacao = pd.read_excel('data/data_geral/tabela202.xlsx')
+urbanizacao
+# %%
+
+df = pd.read_excel('data/data_geral/tabela202.xlsx')
+df_estado = df.iloc[0:2].copy()
+df_estado['municipio'] = 'Pernambuco'
+
+df_long = pd.melt(
+    df_estado, 
+    id_vars=['municipio', 'situacao'], 
+    value_vars=['2000', '2010'], 
+    var_name='Ano', 
+    value_name='Populacao'
+)
+df_long['Populacao_Milhoes'] = df_long['Populacao'] / 1_000_000
+
+taxa_urbanizacao = {
+    '2000': 76.5,  # 76.5% da população era urbana em 2000
+    '2010': 80.2   # 80.2% da população era urbana em 2010
+}
+
+plt.figure(figsize=(12, 6))
+
+ax = sns.barplot(
+    data=df_long, 
+    x='Ano', 
+    y='Populacao_Milhoes', 
+    hue='situacao', 
+    palette=['#1D4ED8', '#9CA3AF']
+)
+
+for i, container in enumerate(ax.containers):
+    # i == 0 significa que estamos lendo as barras da categoria 'Urbana'
+    is_urbana = (i == 0) 
+    
+    for j, bar in enumerate(container):
+        altura = bar.get_height()
+        ano = ['2000', '2010'][j] # j=0 é o ano 2000, j=1 é o ano 2010
+        
+        # Se for urbana, adiciona o valor em milhões E a taxa ao lado/abaixo
+        if is_urbana:
+            # \n quebra a linha para o texto não ficar largo demais e bater na outra barra
+            texto = f'{altura:.2f} M\n({taxa_urbanizacao[ano]}%)'
+        else:
+            # Se for rural, mantém apenas o valor em milhões
+            texto = f'{altura:.2f} M'
+            
+        ax.annotate(texto,
+                    (bar.get_x() + bar.get_width() / 2., altura),
+                    ha='center', va='bottom',
+                    fontsize=10, fontweight='bold', color='#1F2937',
+                    xytext=(0, 3), textcoords='offset points')
+
+plt.title('Crescimento da Pop. Urbana e Retração Rural em PE', fontsize=14, fontweight='bold', loc='left', pad=15)
+
+plt.xlabel('Ano Censitário', fontsize=11, color='#4B5563')
+plt.ylabel('População (em Milhões)', fontsize=11, color='#4B5563')
+sns.despine()
+plt.tight_layout()
+
+plt.show()
 # %%
